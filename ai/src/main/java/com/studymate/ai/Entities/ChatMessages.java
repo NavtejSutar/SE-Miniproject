@@ -29,7 +29,7 @@ import lombok.Setter;
 @Builder 
 public class ChatMessages {
     
-    @Id 
+    @Id
     @GeneratedValue(strategy=GenerationType.IDENTITY)
     private Long ChatMessagesId;
 
