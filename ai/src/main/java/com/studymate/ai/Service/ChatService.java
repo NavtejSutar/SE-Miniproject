@@ -249,19 +249,21 @@ public class ChatService {
                 .content()
                 .subscribe(
                         token -> {
-                            fullResponse.append(token);
-                            try {
-                                emitter.send(SseEmitter.event().name("token").data(token));
-                            } catch (Exception e) {
-                                // client may have disconnected
+                            if (token != null && !token.isEmpty()) {
+                                fullResponse.append(token);
+                                try {
+                                    emitter.send(SseEmitter.event().name("token").data(java.util.Map.of("token", token)));
+                                } catch (Exception e) {
+                                    // client may have disconnected
+                                }
                             }
                         },
                         error -> {
                             log.error("Streaming error from Ollama: ", error);
                             try {
-                                emitter.send(SseEmitter.event().name("error").data("Generation error"));
+                                emitter.send(SseEmitter.event().name("error").data(java.util.Map.of("error", error.getMessage() != null ? error.getMessage() : "Error generating response")));
                             } catch (Exception ignored) {}
-                            emitter.completeWithError(error);
+                            emitter.complete();
                         },
                         () -> {
                             try {
@@ -277,7 +279,7 @@ public class ChatService {
                                 emitter.complete();
                             } catch (Exception e) {
                                 log.error("Error saving assistant message after stream: ", e);
-                                emitter.completeWithError(e);
+                                emitter.complete();
                             }
                         }
                 );

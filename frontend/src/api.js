@@ -190,7 +190,23 @@ export const api = {
                   if (onSources) onSources(sources);
                 } catch (e) {}
               } else if (currentEvent === 'token') {
-                if (onToken) onToken(rawData);
+                try {
+                  const parsed = JSON.parse(rawData.trim());
+                  if (onToken && parsed && parsed.token !== undefined) {
+                    onToken(parsed.token);
+                  } else if (onToken) {
+                    onToken(rawData);
+                  }
+                } catch (e) {
+                  if (onToken) onToken(rawData);
+                }
+              } else if (currentEvent === 'error') {
+                try {
+                  const errObj = JSON.parse(rawData.trim());
+                  if (onError) onError(new Error(errObj.error || 'Generation error'));
+                } catch {
+                  if (onError) onError(new Error(rawData.trim() || 'Generation error'));
+                }
               } else if (currentEvent === 'done') {
                 if (onDone) onDone();
               }
