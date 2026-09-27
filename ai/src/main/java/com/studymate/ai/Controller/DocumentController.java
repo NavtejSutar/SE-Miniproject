@@ -1,14 +1,18 @@
 package com.studymate.ai.Controller;
 
+import com.studymate.ai.Dto.DocumentProgressResponse;
 import com.studymate.ai.Dto.DocumentResponse;
 import com.studymate.ai.Dto.SummarizeRequest;
 import com.studymate.ai.Dto.SummaryResponse;
 import com.studymate.ai.Service.DocumentService;
+import com.studymate.ai.Service.ProgressEmitterService;
 import com.studymate.ai.Service.SummarizationService;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
@@ -18,13 +22,16 @@ public class DocumentController {
 
     private final DocumentService documentService;
     private final SummarizationService summarizationService;
+    private final ProgressEmitterService progressEmitterService;
 
     public DocumentController(
             DocumentService documentService,
-            SummarizationService summarizationService
+            SummarizationService summarizationService,
+            ProgressEmitterService progressEmitterService
     ) {
         this.documentService = documentService;
         this.summarizationService = summarizationService;
+        this.progressEmitterService = progressEmitterService;
     }
 
     @PostMapping("/upload")
@@ -54,6 +61,26 @@ public class DocumentController {
         return ResponseEntity.ok(
                 documentService.getDocument(id, authentication)
         );
+    }
+
+    @GetMapping("/{id}/progress")
+    public ResponseEntity<DocumentProgressResponse> getProgress(
+            @PathVariable Long id,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+                documentService.getDocumentProgress(id, authentication)
+        );
+    }
+
+    @GetMapping(value = "/{id}/progress/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamProgress(
+            @PathVariable Long id,
+            Authentication authentication
+    ) {
+        // Validates ownership before granting stream subscription
+        documentService.getDocument(id, authentication);
+        return progressEmitterService.subscribe(id);
     }
 
     @DeleteMapping("/{id}")

@@ -2,16 +2,10 @@ package com.studymate.ai.Dto;
 
 import com.studymate.ai.Enum.ProcessingStatus;
 
-import java.time.LocalDateTime;
-
-public record DocumentResponse(
+public record DocumentProgressResponse(
         Long documentId,
-        String fileName,
-        String contentType,
-        Long fileSize,
         ProcessingStatus status,
         Integer progress,
         String progressMessage,
-        LocalDateTime uploadedAt
-) {
-}
+        String errorMessage
+) {}

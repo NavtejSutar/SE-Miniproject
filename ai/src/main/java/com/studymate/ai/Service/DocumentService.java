@@ -1,5 +1,6 @@
 package com.studymate.ai.Service;
 
+import com.studymate.ai.Dto.DocumentProgressResponse;
 import com.studymate.ai.Dto.DocumentResponse;
 import com.studymate.ai.Entities.Document;
 import com.studymate.ai.Entities.Users;
@@ -130,6 +131,21 @@ public class DocumentService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
+    public DocumentProgressResponse getDocumentProgress(Long documentId, Authentication authentication) {
+        Users user = getAuthenticatedUser(authentication);
+        Document document = documentRepo.findByDocumentIdAndUser(documentId, user)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Document not found with id: " + documentId
+                ));
+        return new DocumentProgressResponse(
+                document.getDocumentId(),
+                document.getStatus(),
+                document.getProgress(),
+                document.getProgressMessage(),
+                document.getErrorMessage()
+        );
+    }
+
     private DocumentResponse toResponse(Document document) {
         return new DocumentResponse(
                 document.getDocumentId(),
@@ -137,6 +153,8 @@ public class DocumentService {
                 document.getContentType(),
                 document.getFileSize(),
                 document.getStatus(),
+                document.getProgress(),
+                document.getProgressMessage(),
                 document.getUploadedAt()
         );
     }

@@ -36,6 +36,13 @@ public class Document {
     @Builder.Default
     private ProcessingStatus status = ProcessingStatus.UPLOADED;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer progress = 0;
+
+    @Column(length = 255)
+    private String progressMessage;
+
     @Column(columnDefinition = "TEXT")
     private String errorMessage;
 

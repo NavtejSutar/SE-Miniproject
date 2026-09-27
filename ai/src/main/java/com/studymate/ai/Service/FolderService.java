@@ -109,6 +109,8 @@ public class FolderService {
                         doc.getContentType(),
                         doc.getFileSize(),
                         doc.getStatus(),
+                        doc.getProgress(),
+                        doc.getProgressMessage(),
                         doc.getUploadedAt()
                 ))
                 .toList();
