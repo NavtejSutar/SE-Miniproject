@@ -28,15 +28,18 @@ public class DocumentService {
     private final DocumentRepo documentRepo;
     private final UsersRepo usersRepo;
     private final FileStorageService fileStorageService;
+    private final DocumentProcessingService documentProcessingService;
 
     public DocumentService(
             DocumentRepo documentRepo,
             UsersRepo usersRepo,
-            FileStorageService fileStorageService
+            FileStorageService fileStorageService,
+            DocumentProcessingService documentProcessingService
     ) {
         this.documentRepo = documentRepo;
         this.usersRepo = usersRepo;
         this.fileStorageService = fileStorageService;
+        this.documentProcessingService = documentProcessingService;
     }
 
     public DocumentResponse upload(
@@ -58,6 +61,9 @@ public class DocumentService {
                 .build();
 
         Document saved = documentRepo.save(document);
+
+        // Trigger async processing (PDF extraction, OCR, etc.)
+        documentProcessingService.processDocument(saved.getDocumentId());
 
         return toResponse(saved);
     }
