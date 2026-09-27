@@ -1,5 +1,6 @@
 package com.studymate.ai.Entities;
 
+import com.studymate.ai.Enum.ProcessingStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -30,6 +31,14 @@ public class Document {
     @Column(nullable = false, length = 500)
     private String filePath;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private ProcessingStatus status = ProcessingStatus.UPLOADED;
+
+    @Column(columnDefinition = "TEXT")
+    private String errorMessage;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime uploadedAt;
 
@@ -52,3 +61,4 @@ public class Document {
     }
 
 }
+

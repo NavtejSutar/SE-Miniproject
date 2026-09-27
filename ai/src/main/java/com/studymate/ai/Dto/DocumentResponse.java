@@ -1,5 +1,7 @@
 package com.studymate.ai.Dto;
 
+import com.studymate.ai.Enum.ProcessingStatus;
+
 import java.time.LocalDateTime;
 
 public record DocumentResponse(
@@ -7,6 +9,7 @@ public record DocumentResponse(
         String fileName,
         String contentType,
         Long fileSize,
+        ProcessingStatus status,
         LocalDateTime uploadedAt
 ) {
 }

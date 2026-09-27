@@ -59,6 +59,12 @@ public class FileStorageService {
                 uploadDirectory.resolve(storedFileName)
                         .normalize();
 
+        if (!targetPath.startsWith(uploadDirectory)) {
+            throw new RuntimeException(
+                    "Cannot store file outside upload directory"
+            );
+        }
+
         try {
 
             Files.copy(
