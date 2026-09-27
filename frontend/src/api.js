@@ -55,8 +55,18 @@ async function request(endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    const errorMessage = (data && data.error) ? data.error : (typeof data === 'string' && data ? data : `Request failed with status ${response.status}`);
-    throw new Error(errorMessage);
+    let rawError = (data && data.error) ? data.error : (typeof data === 'string' && data ? data : `Request failed with status ${response.status}`);
+    if (typeof rawError === 'string' && (
+      rawError.includes('could not execute statement') || 
+      rawError.includes('relation') || 
+      rawError.includes('column') || 
+      rawError.includes('Hibernate') || 
+      rawError.includes('SQL') || 
+      rawError.includes('Exception')
+    )) {
+      rawError = 'A server error occurred. Please try again later.';
+    }
+    throw new Error(rawError);
   }
 
   return data;

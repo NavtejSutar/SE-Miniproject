@@ -2,6 +2,7 @@ package com.studymate.ai.Exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -65,11 +67,22 @@ public class GlobalExceptionHandler {
         ));
     }
 
+    @ExceptionHandler({DataAccessException.class, SQLException.class})
+    public ResponseEntity<Map<String, Object>> handleDatabaseException(Exception ex) {
+        log.error("Database error occurred: ", ex);
+        // Do not expose database schema, SQL queries, or internal errors to client
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "error", "Database operation failed. Please try again.",
+                "timestamp", LocalDateTime.now()
+        ));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneralException(Exception ex) {
-        log.error("Unhandled exception: ", ex);
+        log.error("Unhandled server exception: ", ex);
+        // Do not leak raw exception messages or stack traces to client
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "error", ex.getMessage() != null ? ex.getMessage() : "An unexpected error occurred",
+                "error", "An internal server error occurred. Please try again.",
                 "timestamp", LocalDateTime.now()
         ));
     }
