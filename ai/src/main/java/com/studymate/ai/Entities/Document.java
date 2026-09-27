@@ -46,6 +46,10 @@ public class Document {
     @JoinColumn(name = "user_id", nullable = false)
     private Users user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "folder_id")
+    private Folder folder;
+
     @OneToMany(
             mappedBy = "document",
             cascade = CascadeType.ALL,

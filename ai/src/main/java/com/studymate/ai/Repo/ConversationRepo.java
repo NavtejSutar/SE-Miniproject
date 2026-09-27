@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface ConversationRepo extends JpaRepository<Conversation,Long>{
     List<Conversation> findByUser(Users users);
     Optional<Conversation> findByConversationIdAndUser(Long conversationId, Users users);
+    List<Conversation> findByUserAndTitleContainingIgnoreCase(Users user, String query);
 }

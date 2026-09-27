@@ -12,4 +12,5 @@ public interface DocumentRepo extends JpaRepository<Document,Long> {
 
     Optional<Document> findByDocumentIdAndUser(Long documentId, Users user);
 
+    List<Document> findByUserAndFileNameContainingIgnoreCase(Users user, String query);
 }
