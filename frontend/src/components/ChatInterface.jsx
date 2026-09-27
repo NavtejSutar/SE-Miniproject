@@ -138,37 +138,58 @@ export default function ChatInterface({ onNavigateToLibrary }) {
       }
     }
 
-    // Optimistically append user message
+    // Optimistically append user message and placeholder assistant message
+    const userMsg = { role: 'USER', content: currentPrompt, createdAt: new Date().toISOString() };
+    
     setMessages(prev => [
       ...prev,
-      { role: 'USER', content: currentPrompt, createdAt: new Date().toISOString() }
+      userMsg,
+      { role: 'ASSISTANT', content: '', sources: [], createdAt: new Date().toISOString() }
     ]);
     setLoading(true);
 
-    try {
-      const response = await api.chat.send(targetConvId, currentPrompt);
-      // Append assistant response with source citations
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'ASSISTANT',
-          content: response.answer,
-          sources: response.sources || [],
-          createdAt: new Date().toISOString()
-        }
-      ]);
-    } catch (err) {
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'ASSISTANT',
-          content: `⚠️ Error: ${err.message || 'Unable to complete AI retrieval.'}`,
-          createdAt: new Date().toISOString()
-        }
-      ]);
-    } finally {
-      setLoading(false);
-    }
+    let accumulatedContent = '';
+
+    await api.chat.stream(targetConvId, currentPrompt, {
+      onSources: (sources) => {
+        setMessages(prev => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last && last.role === 'ASSISTANT') {
+            updated[updated.length - 1] = { ...last, sources: sources || [] };
+          }
+          return updated;
+        });
+      },
+      onToken: (token) => {
+        accumulatedContent += token;
+        setMessages(prev => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last && last.role === 'ASSISTANT') {
+            updated[updated.length - 1] = { ...last, content: accumulatedContent };
+          }
+          return updated;
+        });
+      },
+      onDone: () => {
+        setLoading(false);
+      },
+      onError: (err) => {
+        setMessages(prev => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last && last.role === 'ASSISTANT') {
+            updated[updated.length - 1] = {
+              ...last,
+              content: accumulatedContent || `⚠️ Error: ${err.message || 'Unable to complete AI retrieval.'}`
+            };
+          }
+          return updated;
+        });
+        setLoading(false);
+      }
+    });
   };
 
   const activeChat = conversations.find(c => c.ConversationId === activeConversationId);

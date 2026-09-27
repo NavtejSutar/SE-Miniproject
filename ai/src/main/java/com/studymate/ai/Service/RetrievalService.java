@@ -14,7 +14,7 @@ import java.util.List;
 public class RetrievalService {
 
     private static final Logger log = LoggerFactory.getLogger(RetrievalService.class);
-    private static final int TOP_K = 5;
+    private static final int TOP_K = 3;
 
     private final VectorStore vectorStore;
 

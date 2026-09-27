@@ -2,9 +2,11 @@ package com.studymate.ai.Controller;
 
 import com.studymate.ai.Dto.*;
 import com.studymate.ai.Service.ChatService;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
@@ -26,6 +28,14 @@ public class ChatController {
         return ResponseEntity.ok(
                 chatService.chat(request, authentication)
         );
+    }
+
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamChat(
+            @RequestBody ChatRequest request,
+            Authentication authentication
+    ) {
+        return chatService.streamChat(request, authentication);
     }
 
     @PostMapping("/conversations")

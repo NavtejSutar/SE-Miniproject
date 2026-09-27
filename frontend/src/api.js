@@ -146,6 +146,62 @@ export const api = {
         body: JSON.stringify({ conversationId, prompt }),
       });
     },
+    stream: async (conversationId, prompt, { onToken, onSources, onDone, onError }) => {
+      const token = getAuthToken();
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/chat/stream`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ conversationId, prompt }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to stream chat: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let currentEvent = 'message';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (line.startsWith('event:')) {
+              currentEvent = line.substring(6).trim();
+            } else if (line.startsWith('data:')) {
+              const rawData = line.substring(5);
+              if (currentEvent === 'sources') {
+                try {
+                  const sources = JSON.parse(rawData.trim());
+                  if (onSources) onSources(sources);
+                } catch (e) {}
+              } else if (currentEvent === 'token') {
+                if (onToken) onToken(rawData);
+              } else if (currentEvent === 'done') {
+                if (onDone) onDone();
+              }
+            }
+          }
+        }
+        if (onDone) onDone();
+      } catch (err) {
+        if (onError) onError(err);
+      }
+    },
   },
 
   folders: {

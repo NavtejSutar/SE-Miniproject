@@ -14,7 +14,7 @@ public class AiConfig {
     @Bean
     public ChatMemory chatMemory(){
         return MessageWindowChatMemory.builder()
-                .maxMessages(20)
+                .maxMessages(6)
                 .build();
     }
 

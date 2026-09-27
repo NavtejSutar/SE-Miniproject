@@ -12,14 +12,20 @@ import com.studymate.ai.Repo.UsersRepo;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.document.Document;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class ChatService {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
     private static final String ASSISTANT_SYSTEM_PROMPT = """
             You are StudyMate, an intelligent, insightful, and pedagogical academic tutor.
@@ -167,6 +173,116 @@ public class ChatService {
         chatMessagesRepo.save(assistantMessage);
 
         return new ChatResponse(response, sources);
+    }
+
+    /**
+     * Real-time token streaming with SSE.
+     * Emits sources event first, then streams each token as Ollama generates it,
+     * and finally saves the complete response to the database on completion.
+     */
+    public SseEmitter streamChat(ChatRequest request, Authentication authentication) {
+        Users users = getAuthenticatedUser(authentication);
+
+        Conversation conversation = conversationRepo
+                .findByConversationIdAndUser(request.conversationId(), users)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Conversation not found: " + request.conversationId()
+                ));
+
+        // Dynamically update conversation title to the first user message if it has a default title
+        if (conversation.getTitle() == null || 
+            conversation.getTitle().equalsIgnoreCase("New Conversation") || 
+            conversation.getTitle().equalsIgnoreCase("New Study Session")) {
+            String newTitle = request.prompt().trim();
+            if (newTitle.length() > 40) {
+                newTitle = newTitle.substring(0, 40) + "...";
+            }
+            conversation.setTitle(newTitle);
+            conversationRepo.save(conversation);
+        }
+
+        // Save user message
+        ChatMessages userMessage = ChatMessages.builder()
+                .role(MessageRole.USER)
+                .content(request.prompt())
+                .conversation(conversation)
+                .build();
+        chatMessagesRepo.save(userMessage);
+
+        // Retrieve relevant chunks for this user
+        List<Document> retrievedDocs = retrievalService.retrieveRelevantChunks(
+                request.prompt(), users.getId()
+        );
+        String context = retrievalService.buildContext(retrievedDocs);
+
+        // Extract structured source metadata for the frontend
+        List<SourceDTO> sources = extractSources(retrievedDocs);
+
+        // Build prompt with course context
+        StringBuilder systemPrompt = new StringBuilder(ASSISTANT_SYSTEM_PROMPT);
+        if (!context.isEmpty()) {
+            systemPrompt.append("\n\n=== RELEVANT COURSE STUDY MATERIAL ===\n")
+                    .append(context)
+                    .append("=== END OF COURSE MATERIAL ===\n");
+        }
+
+        SseEmitter emitter = new SseEmitter(180000L); // 3-minute timeout
+
+        // Immediately send sources event so frontend shows badges with zero delay!
+        try {
+            emitter.send(SseEmitter.event().name("sources").data(sources));
+        } catch (IOException e) {
+            emitter.completeWithError(e);
+            return emitter;
+        }
+
+        StringBuilder fullResponse = new StringBuilder();
+
+        // Stream tokens in real-time from Ollama
+        chatClient.prompt()
+                .system(systemPrompt.toString())
+                .advisors(advisor -> advisor
+                        .param(ChatMemory.CONVERSATION_ID,
+                                request.conversationId().toString()))
+                .user(request.prompt())
+                .stream()
+                .content()
+                .subscribe(
+                        token -> {
+                            fullResponse.append(token);
+                            try {
+                                emitter.send(SseEmitter.event().name("token").data(token));
+                            } catch (Exception e) {
+                                // client may have disconnected
+                            }
+                        },
+                        error -> {
+                            log.error("Streaming error from Ollama: ", error);
+                            try {
+                                emitter.send(SseEmitter.event().name("error").data("Generation error"));
+                            } catch (Exception ignored) {}
+                            emitter.completeWithError(error);
+                        },
+                        () -> {
+                            try {
+                                // Save full assistant response to DB
+                                ChatMessages assistantMessage = ChatMessages.builder()
+                                        .role(MessageRole.ASSISTANT)
+                                        .content(fullResponse.toString())
+                                        .conversation(conversation)
+                                        .build();
+                                chatMessagesRepo.save(assistantMessage);
+
+                                emitter.send(SseEmitter.event().name("done").data(""));
+                                emitter.complete();
+                            } catch (Exception e) {
+                                log.error("Error saving assistant message after stream: ", e);
+                                emitter.completeWithError(e);
+                            }
+                        }
+                );
+
+        return emitter;
     }
 
     public void deleteConversation(Long conversationId, Authentication authentication) {
