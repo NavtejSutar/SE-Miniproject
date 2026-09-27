@@ -29,17 +29,20 @@ public class DocumentService {
     private final UsersRepo usersRepo;
     private final FileStorageService fileStorageService;
     private final DocumentProcessingService documentProcessingService;
+    private final EmbeddingService embeddingService;
 
     public DocumentService(
             DocumentRepo documentRepo,
             UsersRepo usersRepo,
             FileStorageService fileStorageService,
-            DocumentProcessingService documentProcessingService
+            DocumentProcessingService documentProcessingService,
+            EmbeddingService embeddingService
     ) {
         this.documentRepo = documentRepo;
         this.usersRepo = usersRepo;
         this.fileStorageService = fileStorageService;
         this.documentProcessingService = documentProcessingService;
+        this.embeddingService = embeddingService;
     }
 
     public DocumentResponse upload(
@@ -91,6 +94,9 @@ public class DocumentService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Document not found with id: " + documentId
                 ));
+
+        // Delete vector embeddings
+        embeddingService.deleteByDocumentId(documentId);
 
         // Delete physical file
         fileStorageService.deleteFile(document.getFilePath());
