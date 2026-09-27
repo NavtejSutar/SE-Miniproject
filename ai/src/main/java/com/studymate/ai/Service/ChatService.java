@@ -112,6 +112,18 @@ public class ChatService {
                 ));
 
         // Save user message
+        // Dynamically update conversation title to the first user message if it has a default title
+        if (conversation.getTitle() == null || 
+            conversation.getTitle().equalsIgnoreCase("New Conversation") || 
+            conversation.getTitle().equalsIgnoreCase("New Study Session")) {
+            String newTitle = request.prompt().trim();
+            if (newTitle.length() > 40) {
+                newTitle = newTitle.substring(0, 40) + "...";
+            }
+            conversation.setTitle(newTitle);
+            conversationRepo.save(conversation);
+        }
+
         ChatMessages userMessage = ChatMessages.builder()
                 .role(MessageRole.USER)
                 .content(request.prompt())

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
+import MarkdownMessage from './MarkdownMessage';
 import { 
   Send, Plus, Trash2, Edit2, Check, X, MessageSquare, 
-  Sparkles, FileText, ArrowRight, Loader2, Bot, User
+  Sparkles, FileText, ArrowRight, Loader2, User
 } from 'lucide-react';
 
 export default function ChatInterface({ onNavigateToLibrary }) {
@@ -105,12 +106,16 @@ export default function ChatInterface({ onNavigateToLibrary }) {
     if (!prompt.trim() || loading) return;
 
     let targetConvId = activeConversationId;
+    const currentPrompt = prompt.trim();
+    setPrompt('');
+
+    // Dynamic title: First 35-40 characters of user prompt
+    const dynamicTitle = currentPrompt.length > 35 ? currentPrompt.substring(0, 35) + '...' : currentPrompt;
 
     // Auto-create chat if none exists
     if (!targetConvId) {
       try {
-        const title = prompt.length > 25 ? prompt.substring(0, 25) + '...' : prompt;
-        const newChat = await api.conversations.create(title);
+        const newChat = await api.conversations.create(dynamicTitle);
         setConversations(prev => [newChat, ...prev]);
         setActiveConversationId(newChat.ConversationId);
         targetConvId = newChat.ConversationId;
@@ -118,11 +123,21 @@ export default function ChatInterface({ onNavigateToLibrary }) {
         console.error('Failed to create initial conversation', err);
         return;
       }
+    } else {
+      // If current active chat still has default title, update it dynamically in state to user's first prompt
+      const currentConv = conversations.find(c => c.ConversationId === targetConvId);
+      if (currentConv && (
+        !currentConv.Title ||
+        currentConv.Title === 'New Study Session' ||
+        currentConv.Title === 'New Conversation' ||
+        currentConv.Title === 'Untitled Session'
+      )) {
+        setConversations(prev =>
+          prev.map(c => c.ConversationId === targetConvId ? { ...c, Title: dynamicTitle } : c)
+        );
+      }
     }
 
-    const currentPrompt = prompt;
-    setPrompt('');
-    
     // Optimistically append user message
     setMessages(prev => [
       ...prev,
@@ -159,13 +174,14 @@ export default function ChatInterface({ onNavigateToLibrary }) {
   const activeChat = conversations.find(c => c.ConversationId === activeConversationId);
 
   return (
-    <div className="flex-1 flex overflow-hidden border-t border-[#26282f] bg-[#0c0d10] text-[#f5f6f8]">
+    <div className="flex-1 flex overflow-hidden h-full min-h-0 bg-[#0c0d10] text-[#f5f6f8]">
       
-      {/* Sidebar: Conversations List */}
-      <aside className="w-72 md:w-80 border-r border-[#26282f] bg-[#0f1015] flex flex-col justify-between">
-        <div>
-          {/* Top Actions */}
-          <div className="p-4 border-b border-[#26282f] flex items-center justify-between">
+      {/* Sidebar: Conversations List (100% static, never extends or shifts) */}
+      <aside className="w-72 md:w-80 flex-shrink-0 h-full flex flex-col justify-between border-r border-[#26282f] bg-[#0f1015] overflow-hidden min-h-0 select-none">
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+          
+          {/* Top Actions (static) */}
+          <div className="p-4 border-b border-[#26282f] flex items-center justify-between flex-shrink-0 bg-[#12141a]">
             <span className="text-xs font-mono uppercase tracking-widest text-gray-400 font-bold">
               Sessions ({conversations.length})
             </span>
@@ -178,8 +194,8 @@ export default function ChatInterface({ onNavigateToLibrary }) {
             </button>
           </div>
 
-          {/* List of Chats */}
-          <div className="overflow-y-auto max-h-[calc(100vh-210px)] p-2 space-y-1">
+          {/* List of Chats (scrolls internally only) */}
+          <div className="flex-1 overflow-y-auto min-h-0 p-2 space-y-1">
             {conversations.map(conv => {
               const isActive = conv.ConversationId === activeConversationId;
               const isEditing = conv.ConversationId === editingConvId;
@@ -250,11 +266,11 @@ export default function ChatInterface({ onNavigateToLibrary }) {
           </div>
         </div>
 
-        {/* Quick Link to Library */}
-        <div className="p-3 border-t border-[#26282f] bg-[#0c0d11]">
+        {/* Quick Link to Library (static at bottom of sidebar) */}
+        <div className="p-3 border-t border-[#26282f] bg-[#0c0d11] flex-shrink-0">
           <button
             onClick={onNavigateToLibrary}
-            className="w-full py-2 px-3 border border-[#2b2e3a] hover:border-gray-500 text-xs font-mono text-gray-300 flex items-center justify-between transition-colors"
+            className="w-full py-2 px-3 border border-[#2b2e3a] hover:border-gray-500 text-xs font-mono text-gray-300 flex items-center justify-between transition-colors cursor-pointer"
           >
             <span className="flex items-center gap-2">
               <FileText className="w-3.5 h-3.5 text-[#ff3838]" /> Study Library
@@ -264,28 +280,28 @@ export default function ChatInterface({ onNavigateToLibrary }) {
         </div>
       </aside>
 
-      {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col justify-between overflow-hidden bg-[#0c0d10]">
+      {/* Main Chat Area (h-full, static header and footer, only messages scroll) */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden min-h-0 bg-[#0c0d10]">
         
-        {/* Chat Header */}
-        <div className="px-6 py-3.5 border-b border-[#26282f] bg-[#0f1015] flex items-center justify-between text-xs font-mono">
+        {/* Chat Header (STATIC - flex-shrink-0) */}
+        <div className="flex-shrink-0 px-6 py-3.5 border-b border-[#26282f] bg-[#0f1015] flex items-center justify-between text-xs font-mono z-10">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            <span className="text-white font-bold">{activeChat?.Title || 'StudyMate AI Tutor'}</span>
+            <span className="text-white font-bold truncate max-w-md">{activeChat?.Title || 'StudyMate AI Tutor'}</span>
           </div>
-          <span className="text-gray-400">Course-Grounded AI Tutor</span>
+          <span className="text-gray-400 hidden sm:inline">Course-Grounded AI Tutor</span>
         </div>
 
-        {/* Messages Scroll Area */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
+        {/* Messages Scroll Area (ONLY THIS SCROLLS) */}
+        <div className="flex-1 overflow-y-auto min-h-0 p-4 md:p-8 space-y-6">
           {messages.length === 0 && !loading && (
             <div className="h-full flex flex-col items-center justify-center text-center max-w-lg mx-auto py-16">
               <div className="w-12 h-12 bg-[#171922] border border-[#2b2e3c] flex items-center justify-center text-[#ff3838] mb-4">
                 <Sparkles className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-black uppercase tracking-wider text-white">Ask Anything From Your Notes</h3>
+              <h3 className="text-lg font-black uppercase tracking-wider text-white">Ask Anything From Your Course</h3>
               <p className="text-xs text-gray-400 font-mono mt-1 mb-8 leading-relaxed">
-                StudyMate explains concepts thoroughly, provides intuitions and formulas, and grounds answers in your uploaded materials.
+                StudyMate explains concepts thoroughly, provides intuitions and step-by-step formulas, and grounds answers in your uploaded materials.
               </p>
 
               {/* Suggestions */}
@@ -311,10 +327,6 @@ export default function ChatInterface({ onNavigateToLibrary }) {
           {/* Render Messages */}
           {messages.map((msg, index) => {
             const isUser = msg.role === 'USER';
-            // Strip any raw legacy inline ### Source headers from content
-            const cleanContent = msg.content
-              ? msg.content.replace(/###\s*Source:?\s*\[?[^\]\n]*\]?/gi, '').trim()
-              : '';
 
             return (
               <div
@@ -328,18 +340,22 @@ export default function ChatInterface({ onNavigateToLibrary }) {
                 )}
 
                 <div
-                  className={`max-w-2xl p-4 md:p-5 text-sm leading-relaxed ${
+                  className={`max-w-3xl p-4 md:p-6 text-sm leading-relaxed ${
                     isUser
-                      ? 'bg-[#181a23] border border-[#2f3342] text-white'
+                      ? 'bg-[#181a23] border border-[#2f3342] text-white whitespace-pre-wrap'
                       : 'bg-[#12141a] border border-[#262933] text-gray-200'
                   }`}
                 >
-                  {/* Message Content */}
-                  <div className="whitespace-pre-wrap font-sans">{cleanContent}</div>
+                  {/* Message Content: Rich Markdown for Assistant, text for User */}
+                  {isUser ? (
+                    <div>{msg.content}</div>
+                  ) : (
+                    <MarkdownMessage content={msg.content} />
+                  )}
 
                   {/* Grounded Source Citations */}
                   {msg.sources && msg.sources.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-[#232630] space-y-2">
+                    <div className="mt-4 pt-3.5 border-t border-[#232630] space-y-2">
                       <div className="text-[10px] font-mono uppercase tracking-widest text-[#ff3838] font-bold">
                         Course Material References ({msg.sources.length}):
                       </div>
@@ -358,7 +374,7 @@ export default function ChatInterface({ onNavigateToLibrary }) {
                     </div>
                   )}
 
-                  <div className="mt-2 text-[10px] font-mono text-gray-500 text-right">
+                  <div className="mt-2.5 text-[10px] font-mono text-gray-500 text-right">
                     {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                   </div>
                 </div>
@@ -378,21 +394,21 @@ export default function ChatInterface({ onNavigateToLibrary }) {
               <div className="w-8 h-8 bg-[#ff3838] text-white flex items-center justify-center font-bold">
                 <Loader2 className="w-4 h-4 animate-spin" />
               </div>
-              <span>Searching PgVector & generating grounded answer...</span>
+              <span>Searching PgVector & generating comprehensive answer...</span>
             </div>
           )}
 
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Bar */}
-        <div className="p-4 md:p-6 border-t border-[#26282f] bg-[#0e0f14]">
+        {/* Input Bar (STATIC - flex-shrink-0) */}
+        <div className="flex-shrink-0 p-4 md:p-6 border-t border-[#26282f] bg-[#0e0f14]">
           <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto relative flex items-center">
             <input
               type="text"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Ask a question from your study notes..."
+              placeholder="Ask anything or request explanations from your study notes..."
               className="w-full bg-[#15171e] border border-[#2b2e3b] text-white px-4 py-3.5 pr-14 text-sm font-sans focus:outline-none focus:border-[#ff3838] transition-colors"
             />
             <button
@@ -404,7 +420,7 @@ export default function ChatInterface({ onNavigateToLibrary }) {
             </button>
           </form>
           <div className="text-center text-[10px] font-mono text-gray-500 mt-2">
-            Answers are restricted to authenticated user material. Zero external hallucination.
+            Answers are grounded in your materials with explanatory tutor intelligence.
           </div>
         </div>
 

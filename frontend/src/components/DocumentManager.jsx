@@ -236,7 +236,6 @@ export default function DocumentManager({ onOpenSummarize, onViewDocument }) {
               <tr>
                 <th className="py-3.5 px-4">Document</th>
                 <th className="py-3.5 px-4">Size</th>
-                <th className="py-3.5 px-4">Subject Folder</th>
                 <th className="py-3.5 px-4">Status</th>
                 <th className="py-3.5 px-4">Uploaded</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
@@ -256,20 +255,6 @@ export default function DocumentManager({ onOpenSummarize, onViewDocument }) {
                   {/* Size */}
                   <td className="py-4 px-4 text-gray-400">
                     {(doc.fileSize / (1024 * 1024)).toFixed(2)} MB
-                  </td>
-
-                  {/* Folder */}
-                  <td className="py-4 px-4">
-                    <select
-                      value={doc.folderId || ''}
-                      onChange={(e) => handleFolderAssign(doc.documentId, e.target.value ? Number(e.target.value) : null)}
-                      className="bg-[#161820] border border-[#2b2e38] text-gray-300 py-1 px-2 text-xs focus:outline-none focus:border-[#ff3838]"
-                    >
-                      <option value="">General</option>
-                      {folders.map(f => (
-                        <option key={f.folderId} value={f.folderId}>{f.name}</option>
-                      ))}
-                    </select>
                   </td>
 
                   {/* Status Badge */}
