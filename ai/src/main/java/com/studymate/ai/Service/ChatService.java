@@ -15,22 +15,22 @@ import org.springframework.ai.document.Document;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class ChatService {
 
-    private static final String GROUNDING_PROMPT = """
-            You are a helpful study assistant. You MUST follow these rules strictly:
+    private static final String ASSISTANT_SYSTEM_PROMPT = """
+            You are StudyMate, an intelligent, insightful, and pedagogical academic tutor.
             
-            1. Answer ONLY using the supplied study material below.
-            2. If the answer cannot be found in the material, say: "I cannot answer this from the provided study material."
-            3. Do NOT invent or hallucinate information.
-            4. When referencing information, mention the source document and page number.
-            5. Be clear, concise, and educational in your responses.
-            
+            Key Directives:
+            1. Provide comprehensive, articulate, and well-structured answers using clean Markdown with clear headings, organized bullet points, and LaTeX/math expressions (e.g. $f(x)$ or \\[...\\]) where appropriate.
+            2. When relevant study materials or excerpts are provided below, use them as your primary foundation to reflect the user's course scope, terminology, and key concepts.
+            3. You have full freewill to elaborate, provide intuitive analogies, detailed step-by-step mathematical or conceptual derivations, and real-world examples to ensure thorough understanding.
+            4. If a question is general knowledge or goes beyond the provided materials, answer it fully and accurately using your broad academic knowledge.
+            5. Do NOT output raw or awkward inline tags like "### Source: ..." or "[Referencing study material]". The platform automatically presents source badges in the user interface.
+            6. Always maintain a professional, encouraging, and clear teaching voice.
             """;
 
     private final ConversationRepo conversationRepo;
@@ -99,8 +99,8 @@ public class ChatService {
     }
 
     /**
-     * Grounded Q&A: retrieve relevant chunks, inject context, call LLM.
-     * Returns structured response with answer + source citations.
+     * Enhanced RAG Q&A: retrieves user document chunks, attaches course context,
+     * but gives the LLM freewill to explain concepts thoroughly and naturally.
      */
     public ChatResponse chat(ChatRequest request, Authentication authentication) {
         Users users = getAuthenticatedUser(authentication);
@@ -119,27 +119,26 @@ public class ChatService {
                 .build();
         chatMessagesRepo.save(userMessage);
 
-        // RAG: retrieve relevant chunks
+        // Retrieve relevant chunks for this user
         List<Document> retrievedDocs = retrievalService.retrieveRelevantChunks(
                 request.prompt(), users.getId()
         );
         String context = retrievalService.buildContext(retrievedDocs);
 
-        // Extract sources for the response
+        // Extract structured source metadata for the frontend
         List<SourceDTO> sources = extractSources(retrievedDocs);
 
-        // Build prompt with grounding
-        String systemPrompt = GROUNDING_PROMPT;
+        // Build prompt with course context while giving LLM full explanatory freedom
+        StringBuilder systemPrompt = new StringBuilder(ASSISTANT_SYSTEM_PROMPT);
         if (!context.isEmpty()) {
-            systemPrompt += context;
-        } else {
-            systemPrompt += "No study material is currently available. " +
-                    "Let the user know they should upload documents first.";
+            systemPrompt.append("\n\n=== RELEVANT COURSE STUDY MATERIAL ===\n")
+                    .append(context)
+                    .append("=== END OF COURSE MATERIAL ===\n");
         }
 
-        // Call LLM with memory
+        // Call LLM with chat memory
         String response = chatClient.prompt()
-                .system(systemPrompt)
+                .system(systemPrompt.toString())
                 .advisors(advisor -> advisor
                         .param(ChatMemory.CONVERSATION_ID,
                                 request.conversationId().toString()))

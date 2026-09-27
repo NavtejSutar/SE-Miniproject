@@ -271,9 +271,9 @@ export default function ChatInterface({ onNavigateToLibrary }) {
         <div className="px-6 py-3.5 border-b border-[#26282f] bg-[#0f1015] flex items-center justify-between text-xs font-mono">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            <span className="text-white font-bold">{activeChat?.Title || 'StudyMate Grounded Q&A'}</span>
+            <span className="text-white font-bold">{activeChat?.Title || 'StudyMate AI Tutor'}</span>
           </div>
-          <span className="text-gray-400">Strict Source Grounding Active</span>
+          <span className="text-gray-400">Course-Grounded AI Tutor</span>
         </div>
 
         {/* Messages Scroll Area */}
@@ -285,16 +285,16 @@ export default function ChatInterface({ onNavigateToLibrary }) {
               </div>
               <h3 className="text-lg font-black uppercase tracking-wider text-white">Ask Anything From Your Notes</h3>
               <p className="text-xs text-gray-400 font-mono mt-1 mb-8 leading-relaxed">
-                StudyMate retrieves relevant chunks from your uploaded documents and answers strictly using your verified material.
+                StudyMate explains concepts thoroughly, provides intuitions and formulas, and grounds answers in your uploaded materials.
               </p>
 
               {/* Suggestions */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full">
                 {[
+                  'What is the Regula Falsi method and how does it work?',
                   'What are the 4 conditions for deadlock?',
                   'Summarize the CPU scheduling algorithms.',
-                  'Explain virtual memory paging with page faults.',
-                  'List the key differences between TCP and UDP.'
+                  'Explain virtual memory paging with page faults.'
                 ].map((s, idx) => (
                   <button
                     key={idx}
@@ -311,6 +311,10 @@ export default function ChatInterface({ onNavigateToLibrary }) {
           {/* Render Messages */}
           {messages.map((msg, index) => {
             const isUser = msg.role === 'USER';
+            // Strip any raw legacy inline ### Source headers from content
+            const cleanContent = msg.content
+              ? msg.content.replace(/###\s*Source:?\s*\[?[^\]\n]*\]?/gi, '').trim()
+              : '';
 
             return (
               <div
@@ -331,13 +335,13 @@ export default function ChatInterface({ onNavigateToLibrary }) {
                   }`}
                 >
                   {/* Message Content */}
-                  <div className="whitespace-pre-wrap font-sans">{msg.content}</div>
+                  <div className="whitespace-pre-wrap font-sans">{cleanContent}</div>
 
                   {/* Grounded Source Citations */}
                   {msg.sources && msg.sources.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-[#232630] space-y-2">
                       <div className="text-[10px] font-mono uppercase tracking-widest text-[#ff3838] font-bold">
-                        Grounded Sources ({msg.sources.length}):
+                        Course Material References ({msg.sources.length}):
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {msg.sources.map((src, i) => (
