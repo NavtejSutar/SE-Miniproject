@@ -45,4 +45,12 @@ public class Users {
     @Builder.Default
     private List<Conversation> conversations = new ArrayList<>();
 
+    @OneToMany(
+            mappedBy = "user",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    @Builder.Default
+    private List<Document> documents = new ArrayList<>();
+
 }
